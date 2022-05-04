@@ -1,16 +1,23 @@
-from flask import Flask, request, url_for, redirect, abort, make_response, jsonify
-
+from flask import Flask, request, url_for, redirect, abort, make_response, jsonify, session
+import os
 # request 是flask中的请求对象，封装了从客户端发送的请求报文
 
 app = Flask(__name__)
+# 读取环境变量中的密钥
+app.secret_key = os.getenv('SECRET_KEY', 'SECRET STRING')
 
-
+@app.route('/')
 @app.route('/hello', methods=['GET', 'POST'])  # methods参数用于设置监听方法
 def hello():
     name = request.args.get('name')  # 获取查询参数name的值
     if name is None:
-        name = request.cookies.get('name', 'Human') # 通过cookie来获取用户名
-    return '<h1>Hello, %s</h1>' % name
+        name = request.cookies.get('name', 'Human')  # 通过cookie来获取用户名
+        response = '<h1>Hello, %s</h1>' % name
+    if 'logged_in' in session:  # 读取session中的内容，根据状态返回不同内容
+        response += '[Authenticated]'
+    else:
+        response += '[Not Authenticated]'
+    return response
 
 
 @app.route('/goback/<int:year>')  # int是变量类型的转换器
@@ -80,7 +87,7 @@ body: Don't forget the party!
         body = {"note": {
             "to": "Peter",
             "from": "Jane",
-            "heading": "Remider",
+            "heading": "Reminder",
             "body": "Don't forget the party!"
         }
         }
@@ -99,4 +106,22 @@ def set_cookie(name):
     response.set_cookie('name', name)   # 在响应中包含cookie  cookie中包含明文很危险
     return response
 
+# 登录，给session中加一个认证
+@app.route('/login')
+def login():
+    session['logged_in'] = True
+    return redirect(url_for('hello'))
 
+# 要去掉认证，pop即可
+@app.route('/logout')
+def logout():
+    if 'logged_in' in session:
+        session.pop('logged_in')
+    return redirect(url_for('hello'))
+
+
+@app.route('/admin')
+def admin():
+    if 'logged_in' not in session:
+        abort(403)
+    return 'Welcome back administrator!'
